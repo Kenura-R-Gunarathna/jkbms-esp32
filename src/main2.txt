@@ -1,0 +1,738 @@
+#include <Arduino.h>
+#include <HardwareSerial.h>
+#include <Arduino_JSON.h>
+
+// Define Serial port and baud rate
+#define BMS_SERIAL Serial1
+#define BMS_BAUD_RATE 115200 // Adjust to your BMS's baud rate
+#define DEBUG true
+
+#define MAX_DATA_LENGTH 200 // Increased for safety (adjust based on your frame size)
+
+byte data[MAX_DATA_LENGTH]; // Array to store received data
+int dataIndex = 0;         // Index to track current position in the array
+bool frameReceived = false;  // Flag to indicate a complete frame has been received
+
+// Embedded JSON Configuration
+const char* jsonConfig =
+  "{"
+  "  \"header\": {"
+  "    \"start_bytes\": [\"0x4E\", \"0x57\"],"
+  "    \"length_byte_index\": 3"
+  "  },"
+  ""
+  "  \"data_fields\": ["
+  "    {"
+  "      \"name\": \"cell_voltages\","
+  "      \"code\": \"0x79\","
+  "      \"description\": \"Individual Cell Voltage\","
+  "      \"cellcount_byte_index\": 16,"
+  "      \"cell_count_multiplier\": 3,"
+  "      \"cell\": {"
+  "        \"cell_index_base\": 17,"
+  "        \"data_length\": 3,"
+  "        \"name\": \"Cell Voltage\","
+  "        \"unit\": \"V\","
+  "        \"type\": \"float\","
+  "        \"scale\": 0.001"
+  "      }"
+  "    },"
+  "    {"
+  "      \"name\": \"power_tube_temperature\","
+  "      \"code\": \"0x80\","
+  "      \"description\": \"Power Tube Temperature\","
+  "      \"index\": 40,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Power Tube Temp\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_box_temperature\","
+  "      \"code\": \"0x81\","
+  "      \"description\": \"Battery Box Temperature\","
+  "      \"index\": 42,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Battery Box Temp\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_temperature\","
+  "      \"code\": \"0x82\","
+  "      \"description\": \"Battery Temperature\","
+  "      \"index\": 44,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Battery Temp\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"total_battery_voltage\","
+  "      \"code\": \"0x83\","
+  "      \"description\": \"Total Battery Voltage\","
+  "      \"index\": 46,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Total Voltage\","
+  "      \"unit\": \"V\","
+  "      \"type\": \"float\","
+  "      \"scale\": 0.01"
+  "    },"
+  "    {"
+  "      \"name\": \"current_data\","
+  "      \"code\": \"0x84\","
+  "      \"description\": \"Current Data\","
+  "      \"index\": 48,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Current\","
+  "      \"unit\": \"A\","
+  "      \"type\": \"float\","
+  "      \"scale\": 0.01,"
+  "      \"signed\": true"
+  "    },"
+  "    {"
+  "      \"name\": \"soc\","
+  "      \"code\": \"0x85\","
+  "      \"description\": \"State of Charge\","
+  "      \"index\": 50,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"SOC\","
+  "      \"unit\": \"%\", "
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"number_of_battery_temperature_sensors\","
+  "      \"code\": \"0x86\","
+  "      \"description\": \"Number of Battery Temperature Sensors\","
+  "      \"index\": 51,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Number of Battery Temp Sensors\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"number_of_battery_cycles\","
+  "      \"code\": \"0x87\","
+  "      \"description\": \"Number of Battery Cycles\","
+  "      \"index\": 52,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Number of Battery Cycles\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"total_battery_cycle_capacity\","
+  "      \"code\": \"0x89\","
+  "      \"description\": \"Total Battery Cycle Capacity\","
+  "      \"index\": 54,"
+  "      \"data_length\": 4,"
+  "      \"label\": \"Total Battery Cycle Capacity\","
+  "      \"unit\": \"Ah\","
+  "      \"type\": \"float\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_strings\","
+  "      \"code\": \"0x8A\","
+  "      \"description\": \"Number of Battery Strings\","
+  "      \"index\": 58,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Battery Strings\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_warning_message\","
+  "      \"code\": \"0x8B\","
+  "      \"description\": \"Battery Warning Message\","
+  "      \"index\": 59,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Battery Warning Message\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_status_information\","
+  "      \"code\": \"0x8C\","
+  "      \"description\": \"Battery Status Information\","
+  "      \"index\": 61,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Battery Status Information\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"total_voltage_overvoltage_protection\","
+  "      \"code\": \"0x8E\","
+  "      \"description\": \"Total Voltage Overvoltage Protection\","
+  "      \"index\": 63,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Total Voltage Overvoltage Protection\","
+  "      \"unit\": \"V\","
+  "      \"type\": \"float\","
+  "      \"scale\": 0.01"
+  "    },"
+  "    {"
+  "      \"name\": \"total_voltage_undervoltage_protection\","
+  "      \"code\": \"0x8F\","
+  "      \"description\": \"Total Voltage Undervoltage Protection\","
+  "      \"index\": 65,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Total Voltage Undervoltage Protection\","
+  "      \"unit\": \"V\","
+  "      \"type\": \"float\","
+  "      \"scale\": 0.01"
+  "    },"
+  "   {"
+  "      \"name\": \"single_overvoltage_protection_voltage\","
+  "      \"code\": \"0x90\","
+  "      \"description\": \"Single Overvoltage Protection Voltage\","
+  "      \"index\": 67,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Single Overvoltage Protection Voltage\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"cell_overvoltage_recovery_voltage\","
+  "      \"code\": \"0x91\","
+  "      \"description\": \"Cell Overvoltage Recovery Voltage\","
+  "      \"index\": 69,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Cell Overvoltage Recovery Voltage\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "   {"
+  "      \"name\": \"single_overvoltage_protection_delay\","
+  "      \"code\": \"0x92\","
+  "      \"description\": \"Single Overvoltage Protection Delay\","
+  "      \"index\": 71,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Single Overvoltage Protection Delay\","
+  "      \"unit\": \"seconds\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"single_undervoltage_protection_voltage\","
+  "      \"code\": \"0x93\","
+  "      \"description\": \"Single Undervoltage Protection Voltage\","
+  "      \"index\": 73,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Single Undervoltage Protection Voltage\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "   {"
+  "      \"name\": \"monomer_undervoltage_recovery_voltage\","
+  "      \"code\": \"0x94\","
+  "      \"description\": \"Monomer Undervoltage Recovery Voltage\","
+  "      \"index\": 75,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Monomer Undervoltage Recovery Voltage\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"single_undervoltage_protection_delay\","
+  "      \"code\": \"0x95\","
+  "      \"description\": \"Single Undervoltage Protection Delay\","
+  "      \"index\": 77,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Single Undervoltage Protection Delay\","
+  "      \"unit\": \"seconds\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"cell_pressure_difference_protection\","
+  "      \"code\": \"0x96\","
+  "      \"description\": \"Cell Pressure Difference Protection\","
+  "      \"index\": 79,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Cell Pressure Difference Protection\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"discharge_overcurrent_protection_value\","
+  "      \"code\": \"0x97\","
+  "      \"description\": \"Discharge Overcurrent Protection Value\","
+  "      \"index\": 81,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Discharge Overcurrent Protection Value\","
+  "      \"unit\": \"A\","
+  "      \"type\": \"float\","
+  "      \"scale\": 1"
+  "    },"
+  "    {"
+  "      \"name\": \"discharge_overcurrent_delay\","
+  "      \"code\": \"0x98\","
+  "      \"description\": \"Discharge Overcurrent Delay\","
+  "      \"index\": 83,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Discharge Overcurrent Delay\","
+  "      \"unit\": \"seconds\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"charging_overcurrent_protection_value\","
+  "      \"code\": \"0x99\","
+  "      \"description\": \"Charging Overcurrent Protection Value\","
+  "      \"index\": 85,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Charging Overcurrent Protection Value\","
+  "      \"unit\": \"A\","
+  "      \"type\": \"float\","
+  "      \"scale\": 1"
+  "    },"
+  "    {"
+  "      \"name\": \"charge_overcurrent_delay\","
+  "      \"code\": \"0x9A\","
+  "      \"description\": \"Charge Overcurrent Delay\","
+  "      \"index\": 87,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Charge Overcurrent Delay\","
+  "      \"unit\": \"seconds\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"balanced_starting_voltage\","
+  "      \"code\": \"0x9B\","
+  "      \"description\": \"Balanced Starting Voltage\","
+  "      \"index\": 89,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Balanced Starting Voltage\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"balanced_opening_pressure_difference\","
+  "      \"code\": \"0x9C\","
+  "      \"description\": \"Balanced Opening Pressure Difference\","
+  "      \"index\": 91,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Balanced Opening Pressure Difference\","
+  "      \"unit\": \"mV\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"active_balance_switch\","
+  "      \"code\": \"0x9D\","
+  "      \"description\": \"Active Balance Switch\","
+  "      \"index\": 93,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Active Balance Switch\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"power_tube_temperature_protection_value\","
+  "      \"code\": \"0x9E\","
+  "      \"description\": \"Power Tube Temperature Protection Value\","
+  "      \"index\": 94,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Power Tube Temperature Protection Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"power_tube_temperature_recovery_value\","
+  "      \"code\": \"0x9F\","
+  "      \"description\": \"Power Tube Temperature Recovery Value\","
+  "      \"index\": 96,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Power Tube Temperature Recovery Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"temperature_protection_value_in_the_battery_box\","
+  "      \"code\": \"0xA0\","
+  "      \"description\": \"Temperature Protection Value in the Battery Box\","
+  "      \"index\": 98,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Temperature Protection Value in the Battery Box\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"temperature_recovery_value_in_the_battery_box\","
+  "      \"code\": \"0xA1\","
+  "      \"description\": \"Temperature Recovery Value in the Battery Box\","
+  "      \"index\": 100,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Temperature Recovery Value in the Battery Box\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_temperature_difference_protection_value\","
+  "      \"code\": \"0xA2\","
+  "      \"description\": \"Battery Temperature Difference Protection Value\","
+  "      \"index\": 102,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Battery Temperature Difference Protection Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_charging_high_temperature_protection_value\","
+  "      \"code\": \"0xA3\","
+  "      \"description\": \"Battery Charging High Temperature Protection Value\","
+  "      \"index\": 104,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Battery Charging High Temperature Protection Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_discharge_high_temperature_protection_value\","
+  "      \"code\": \"0xA4\","
+  "      \"description\": \"Battery Discharge High Temperature Protection Value\","
+  "      \"index\": 106,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Battery Discharge High Temperature Protection Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"charging_low_temperature_protection_value\","
+  "      \"code\": \"0xA5\","
+  "      \"description\": \"Charging Low Temperature Protection Value\","
+  "      \"index\": 108,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Charging Low Temperature Protection Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"charging_low_temperature_protection_recovery_value\","
+  "      \"code\": \"0xA6\","
+  "      \"description\": \"Charging Low Temperature Protection Recovery Value\","
+  "      \"index\": 110,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Charging Low Temperature Protection Recovery Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"discharge_low_temperature_protection_value\","
+  "      \"code\": \"0xA7\","
+  "      \"description\": \"Discharge Low Temperature Protection Value\","
+  "      \"index\": 112,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Discharge Low Temperature Protection Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"discharge_low_temperature_protection_recovery_value\","
+  "      \"code\": \"0xA8\","
+  "      \"description\": \"Discharge Low Temperature Protection Recovery Value\","
+  "      \"index\": 114,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Discharge Low Temperature Protection Recovery Value\","
+  "      \"unit\": \"°C\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_string_setting\","
+  "      \"code\": \"0xA9\","
+  "      \"description\": \"Battery String Setting\","
+  "      \"index\": 116,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Battery String Setting\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_capacity_setting\","
+  "      \"code\": \"0xAA\","
+  "      \"description\": \"Battery Capacity Setting\","
+  "      \"index\": 117,"
+  "      \"data_length\": 4,"
+  "      \"label\": \"Battery Capacity Setting\","
+  "      \"unit\": \"Ah\","
+  "      \"type\": \"float\""
+  "    },"
+  "    {"
+  "      \"name\": \"charging_mos_tube_switch\","
+  "      \"code\": \"0xAB\","
+  "      \"description\": \"Charging MOS Tube Switch\","
+  "      \"index\": 121,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Charging MOS Tube Switch\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"discharge_mos_tube_switch\","
+  "      \"code\": \"0xAC\","
+  "      \"description\": \"Discharge MOS Tube Switch\","
+  "      \"index\": 122,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Discharge MOS Tube Switch\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"current_calibration\","
+  "      \"code\": \"0xAD\","
+  "      \"description\": \"Current Calibration\","
+  "      \"index\": 123,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Current Calibration\","
+  "      \"unit\": \"mA\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"protection_board_address\","
+  "      \"code\": \"0xAE\","
+  "      \"description\": \"Protection Board Address\","
+  "      \"index\": 125,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Protection Board Address\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"battery_type\","
+  "      \"code\": \"0xAF\","
+  "      \"description\": \"Battery Type\","
+  "      \"index\": 126,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Battery Type\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"sleep_waiting_time\","
+  "      \"code\": \"0xB0\","
+  "      \"description\": \"Sleep Waiting Time\","
+  "      \"index\": 127,"
+  "      \"data_length\": 2,"
+  "      \"label\": \"Sleep Waiting Time\","
+  "      \"unit\": \"seconds\","
+  "      \"type\": \"int\""
+  "    },"
+  "    {"
+  "      \"name\": \"low_volume_alarm_value\","
+  "      \"code\": \"0xB1\","
+  "      \"description\": \"Low Volume Alarm Value\","
+  "      \"index\": 129,"
+  "      \"data_length\": 1,"
+  "      \"label\": \"Low Volume Alarm Value\","
+  "      \"unit\": \"%\", "
+  "      \"type\": \"int\""
+  "    },"
+    "{"
+  "      \"name\": \"system_working_hours\","
+  "      \"code\": \"0xB6\","
+  "      \"description\": \"System Working Hours\","
+  "      \"index\": 130,"
+  "      \"data_length\": 4,"
+  "      \"label\": \"System Working Hours\","
+  "      \"unit\": \"Minutes\","
+  "      \"type\": \"long\""
+  "    },"
+  "   {"
+  "      \"name\": \"actual_battery_capacity\","
+  "      \"code\": \"0xB9\","
+  "      \"description\": \"Actual Battery Capacity\","
+  "      \"index\": 134,"
+  "      \"data_length\": 4,"
+  "      \"label\": \"Actual Battery Capacity\","
+  "      \"unit\": \"Ah\","
+  "      \"type\": \"float\""
+  "    },"
+  "    {"
+  "      \"name\": \"manufacturer_id\","
+  "      \"code\": \"0xBA\","
+  "      \"description\": \"Manufacturer ID\","
+  "      \"index\": 138,"
+  "      \"data_length\": 24,"
+  "      \"label\": \"Manufacturer ID\","
+  "      \"type\": \"string\""
+  "    }"
+  "  ]"
+  "}";
+
+// JSON Configuration
+JSONVar config;
+
+
+// Function Prototypes
+void readBMSData();
+void decodeBMSData(const byte* data);
+void printDecodedData(const byte* data);
+
+void setup() {
+  Serial.begin(115200); // Initialize Serial Monitor for debugging
+  BMS_SERIAL.begin(BMS_BAUD_RATE, SERIAL_8N1, 16, 17); // Initialize Serial1 for BMS communication (RX pin, TX pin)
+
+  Serial.println("ESP32 JKBMS Decoder Starting...");
+
+  // Parse JSON configuration
+  config = JSON.parse(jsonConfig);
+
+  if (JSON.typeof(config) == "undefined") {
+    Serial.println("Parsing input using JSON.parse failed!");
+    while(true);
+  }
+}
+
+void loop() {
+  readBMSData(); // Read data from the BMS
+
+  if (frameReceived) {
+    decodeBMSData(data); // Decode the data
+    frameReceived = false;  // Reset the flag
+  }
+}
+
+// Function to read data from the BMS serial port
+void readBMSData() {
+  while (BMS_SERIAL.available() > 0) {
+    byte inByte = BMS_SERIAL.read();
+
+    if (dataIndex == 0 && inByte != strtol(((const char*)config["header"]["start_bytes"][0]), NULL, 16)) {
+      // Wait for the start byte
+      if (DEBUG) Serial.print("Skipping byte: 0x");
+      if (DEBUG) Serial.println(inByte, HEX);
+      continue;
+    }
+
+    data[dataIndex++] = inByte;
+
+    if (dataIndex >= MAX_DATA_LENGTH) {
+      frameReceived = true;
+      dataIndex = 0; // Reset the index for the next frame
+      break;           // Exit the loop after receiving a complete frame
+    }
+  }
+}
+
+void decodeBMSData(const byte* data) {
+  // Check header
+  if (data[0] != strtol(((const char*)config["header"]["start_bytes"][0]), NULL, 16) || data[1] != strtol(((const char*)config["header"]["start_bytes"][1]), NULL, 16)) {
+    Serial.println("Invalid Header!");
+    return;
+  }
+
+  printDecodedData(data);
+}
+
+// Helper function to convert bytes to a number (int or float)
+template <typename T>
+T bytesToNumber(const byte* data, int index, int length, float scale = 1.0) {
+  T result = 0;
+  for (int i = 0; i < length; ++i) {
+    result <<= 8;
+    result |= data[index + i];
+  }
+  return (T)(result * scale);
+}
+
+// Function to decode and print BMS data in a tabular format
+void printDecodedData(const byte* data) {
+  Serial.println("------------------------------------------------");
+  Serial.println("JKBMS Data:");
+  Serial.println("------------------------------------------------");
+
+  JSONVar dataFields = config["data_fields"];
+
+  for (int i = 0; i < dataFields.length(); ++i) {
+    JSONVar fieldConfig = dataFields[i];
+
+    String fieldName = (const char*)fieldConfig["name"];
+
+    long code = strtol(((const char*)fieldConfig["code"]), NULL, 16);
+
+    if (code == 0x79) { // Cell Voltages
+      Serial.println("--- Cell Voltages ---");
+      int cellcountByteIndex = (int)fieldConfig["cellcount_byte_index"];
+      int cellCountMultiplier = (int)fieldConfig["cell_count_multiplier"];
+
+      byte cellVoltageByteCount = data[cellcountByteIndex]; // Number of bytes of cell voltages
+      int numCells = cellVoltageByteCount / cellCountMultiplier;
+      int cellIndexBase = (int)fieldConfig["cell"]["cell_index_base"]; // Where the cell info begins
+
+      for (int j = 0; j < numCells; j++) {
+        int cellNumber = data[cellIndexBase + j * cellCountMultiplier];
+        int voltageIndex = cellIndexBase + j * cellCountMultiplier + 1;
+
+        float scale = strtof((const char*)fieldConfig["cell"]["scale"], NULL);
+        int length = (int)fieldConfig["cell"]["data_length"];
+        int voltage = bytesToNumber<int>(data, voltageIndex, length);
+
+        Serial.print("Cell ");
+        Serial.print(cellNumber);
+        Serial.print(" Voltage: ");
+        Serial.print(voltage * scale); // Convert mV to V
+        Serial.println(" V");
+      }
+    } else { // all other data points
+      // Generic data processing based on JSON configuration
+      int index = (int)fieldConfig["index"];
+      int length = (int)fieldConfig["data_length"];
+      String label = (const char*)fieldConfig["label"];  // Use label instead of name for display
+      String unit = (const char*)fieldConfig["unit"];
+      String type = (const char*)fieldConfig["type"];
+      float scale = static_cast<float>(strtod(((const char*)fieldConfig["scale"]), NULL));
+
+      Serial.print(label); // Use the label for printing
+      Serial.print(": ");
+
+      if (type.equals("int")) {
+        int value = bytesToNumber<int>(data, index, length, scale);
+        Serial.print(value);
+      } else if (type.equals("float")) {
+        float value = bytesToNumber<float>(data, index, length, scale);
+          if (fieldConfig.hasOwnProperty("signed") && (bool)fieldConfig["signed"]) {
+            // Check the most significant bit and adjust the value accordingly
+            if ((data[index] & 0x80) == 0x80) {
+              value = (bytesToNumber<unsigned int>(data, index, length) - 65536) * scale;
+            }
+          }
+        Serial.print(value);
+      } else if (type.equals("long")) {
+        long value = bytesToNumber<long>(data, index, length, scale);
+        Serial.print(value);
+      } else if (type.equals("string")) {
+        char value[length + 1];
+        for (int k = 0; k < length; k++) {
+          value[k] = (char)data[index + k];
+        }
+        value[length] = '\0';
+        Serial.print(value);
+      }
+
+      if (unit.length() > 0) {
+        Serial.print(" ");
+        Serial.print(unit);
+      }
+      Serial.println();
+    }
+    Serial.println();
+  }
+
+  Serial.println("------------------------------------------------");
+  Serial.println();
+}
+
+// Function to load the JSON configuration file from SPIFFS
+bool loadConfig(const char* filename) {
+  File file = SPIFFS.open(filename);
+  if (!file || file.isDirectory()) {
+    Serial.println("- failed to open file for reading");
+    return false;
+  }
+
+  Serial.println("- Reading config file:");
+  String fileContent;
+  while (file.available()) {
+    fileContent = file.readString();
+    Serial.print(fileContent);
+  }
+  Serial.println();
+
+  // Parse JSON data from the file content
+  config = JSON.parse(fileContent);
+
+  if (JSON.typeof(config) == "undefined") {
+    Serial.println("Parsing input using JSON.parse failed!");
+    file.close();
+    return false;
+  }
+
+  file.close();
+  return true;
+}

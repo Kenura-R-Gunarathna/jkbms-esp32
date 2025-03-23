@@ -1,16 +1,17 @@
 # JKBMS - Standord
 
+Below report is done using an actual request response from the provided JKBMS.
+
 ### Request
 
 ```
-4E 57 0 13 0 0 0 0 6 3 0 0 0 0 0 0 68 0 0 1 29
+4E 57 00 13 00 00 00 00 06 03 00 00 00 00 00 00 68 00 00 01 29
 ```
 
 ### Response
 
 ```
-4E 57 01 06 00 00 00 00 06 00 01 79 15 01 0E D2 02 0E D2 03 0E D2 04 0E D2 05 0E DB 06 0E DB 07 0E DB 80 00 1C 81 00 1C 82 00 1C 83 0A 62 84 00 00 85 5A 86 02 87 00 00 89 00 00 00 05 8A 00 07 8B 00 00 8C 00 03 8E 0B 7C 8F 07 B6 90 10 68 91 10 54 92 00 03 
-93 0B 04 94 0B 22 95 00 03 96 01 2C 97 00 C8 98 01 2C 99 00 19 9A 00 1E 9B 0B B8 9C 00 0A 9D 01 9E 00 64 9F 00 50 A0 00 46 A1 00 3C A2 00 14 A3 00 46 A4 00 46 A5 FF EC A6 FF F6 A7 FF EC A8 FF F6 A9 07 AA 00 00 00 75 AB 01 AC 01 AD 03 CC AE 01 AF 01 B0 00 0A B1 14 B2 31 32 33 34 35 36 00 00 00 00 B3 00 B4 49 6E 70 75 74 20 55 73 B5 32 34 30 37 B6 00 00 08 19 B7 31 31 2E 58 41 5F 53 31 31 2E 35 31 5F 5F 5F B8 00 B9 00 00 00 75 BA 49 6E 70 75 74 20 55 73 65 72 64 61 4A 4B 5F 42 31 41 38 53 32 30 50 00 C0 01 00 00 00 00 68 00 00 4D 89
+4E 57 01 06 00 00 00 00 06 00 01 79 15 01 0E D2 02 0E D2 03 0E D2 04 0E D2 05 0E DB 06 0E DB 07 0E DB 80 00 1C 81 00 1C 82 00 1C 83 0A 62 84 00 00 85 5A 86 02 87 00 00 89 00 00 00 05 8A 00 07 8B 00 00 8C 00 03 8E 0B 7C 8F 07 B6 90 10 68 91 10 54 92 00 03 93 0B 04 94 0B 22 95 00 03 96 01 2C 97 00 C8 98 01 2C 99 00 19 9A 00 1E 9B 0B B8 9C 00 0A 9D 01 9E 00 64 9F 00 50 A0 00 46 A1 00 3C A2 00 14 A3 00 46 A4 00 46 A5 FF EC A6 FF F6 A7 FF EC A8 FF F6 A9 07 AA 00 00 00 75 AB 01 AC 01 AD 03 CC AE 01 AF 01 B0 00 0A B1 14 B2 31 32 33 34 35 36 00 00 00 00 B3 00 B4 49 6E 70 75 74 20 55 73 B5 32 34 30 37 B6 00 00 08 19 B7 31 31 2E 58 41 5F 53 31 31 2E 35 31 5F 5F 5F B8 00 B9 00 00 00 75 BA 49 6E 70 75 74 20 55 73 65 72 64 61 4A 4B 5F 42 31 41 38 53 32 30 50 00 C0 01 00 00 00 00 68 00 00 4D 89
 ```
 
 ### Frame Format
@@ -171,6 +172,134 @@ The column format `"BT3072020120000200521001"` is structured as follows:
     - **Production Month**: December
     - **Production Date**: 20th
     - **Serial Number**: 001
+
+### Decoding Example
+
+The following is an example of decoding a response and request frame. All values are in hexadecimal format.
+
+#### Response Frame Breakdown:
+```
+4E 57 00 13 00 00 00 00 06 03 00 00 00 00 00 00 68 00 00 01 29
+```
+
+| Field                     | Value         | Description                                                                 |
+|---------------------------|---------------|-----------------------------------------------------------------------------|
+| **STX**                  | `4E 57`       | Start of the frame.                                                        |
+| **LENGTH**               | `00 13`       | Length of the frame (19 in decimal).                                       |
+| **BMS Terminal Number**  | `00 00 00 00` | Management standby number: `0`, terminal number: `0`.                      |
+| **Command**              | `06`          | `0x06` - Read All Data.                                                    |
+| **Word Frame Source**    | `03`          | Source: PC host computer.                                                  |
+| **Transport Type**       | `00`          | Request frame.                                                             |
+| **Frame Information Unit** | `00`         | No additional information.                                                 |
+| **Record Number**        | `00 00 00 00` | Random code: `0`, record number: `0`.                                      |
+| **End Mark**             | `68`          | End of the frame.                                                          |
+| **Checksum**             | `00 00 01 29` | Checksum for validation.                                                   |
+
+---
+
+#### Request Frame Breakdown:
+```
+4E 57 01 06 00 00 00 00 06 00 01 79 15 01 0E D2 02 0E D2 03 0E D2 04 0E D2 05 0E DB 06 0E DB 07 0E DB 80 00 1C ...
+```
+
+| Field                     | Value         | Description                                                                 |
+|---------------------------|---------------|-----------------------------------------------------------------------------|
+| **STX**                  | `4E 57`       | Start of the frame.                                                        |
+| **LENGTH**               | `01 06`       | Length of the frame (262 in decimal).                                      |
+| **BMS Terminal Number**  | `00 00 00 00` | Management standby number: `0`, terminal number: `0`.                      |
+| **Command**              | `06`          | `0x06` - Read All Data.                                                    |
+| **Word Frame Source**    | `00`          | Source: BMS.                                                               |
+| **Transport Type**       | `01`          | Response frame.                                                            |
+| **Frame Information Element** | `79 15 ... C0 01` | Information field for BMS setting data identification code. [Read More](#frame-information-elements) |
+| **Record Number**       | `00 00 00 00`  | The upper 1 byte is a random code (reserved for encryption), and the lower 3 bytes are the record number/code. |
+| **End Mark**            | `68`      | Indicates the end of the frame. |
+| **Checksum**            | `00 00 4D 89`      | The checksum is calculated as the cumulative sum of all bytes from the start character (`STX`) to the end mark (`0x68`). Used for frame validation. |
+
+---
+
+#### Frame Information Elements:
+The following are the decoded data fields from the frame information unit:
+
+| Code   | Description                                | Value           | Notes                                                                 |
+|--------|--------------------------------------------|-----------------|----------------------------------------------------------------------|
+| `0x79` | Single Battery Voltage                    | `15 01 ... 0E DB`| Voltage of individual battery cells. [Read More](#single-battery-voltage-0x79) |
+| `0x80` | Power Tube Temperature                    | `00 1C`         | Temperature of the power tube.                                       |
+| `0x81` | Battery Box Internal Temp                 | `00 1C`         | Internal temperature of the battery box.                            |
+| `0x82` | Battery Temperature                       | `00 1C`         | Temperature of the battery.                                          |
+| `0x83` | Total Battery Voltage                     | `0A 62`         | Total voltage of the battery pack.                                   |
+| `0x84` | Current Data                              | `00 00`         | Current flowing through the battery.                                 |
+| `0x85` | Battery Remaining Capacity                | `5A`            | State of charge (SOC) in percentage.                                 |
+| `0x86` | Number of Battery Temperature Sensors     | `02`            | Number of temperature sensors.                                       |
+| `0x87` | Number of Battery Cycles                  | `00 00`         | Total charge/discharge cycles.                                       |
+| `0x89` | Total Battery Cycle Capacity              | `00 00 00 05`   | Total capacity over all cycles.                                      |
+| `0x8A` | Total Number of Battery Strings           | `00 07`         | Number of battery strings in the pack.                               |
+| `0x8B` | Battery Warning Message                   | `00 00`         | Warning flags for various conditions.                                |
+| `0x8C` | Battery Status Information                | `00 03`         | Bit-coded status information.                                        |
+| `0x8E` | Total Voltage Overvoltage Protection      | `0B 7C`         | Protection threshold for total voltage.                              |
+| `0x8F` | Total Voltage Undervoltage Protection     | `07 B6`         | Protection threshold for undervoltage.                               |
+| `0x90` | Single Overvoltage Protection Voltage     | `10 68`         | Threshold for single cell overvoltage protection.                    |
+| `0x91` | Cell Overvoltage Recovery Voltage         | `10 54`         | Recovery threshold for single cell overvoltage.                      |
+| `0x92` | Single Overvoltage Protection Delay       | `00 03`         | Delay for overvoltage protection.                                    |
+| `0x93` | Single Undervoltage Protection Voltage    | `0B 04`         | Threshold for single cell undervoltage protection.                   |
+| `0x94` | Single Undervoltage Recovery Voltage      | `0B 22`         | Recovery threshold for single cell undervoltage.                     |
+| `0x95` | Single Undervoltage Protection Delay      | `00 03`         | Delay for undervoltage protection.                                   |
+| `0x96` | Cell Pressure Difference Protection Value | `01 2C`         | Threshold for pressure difference protection.                        |
+| `0x97` | Discharge Overcurrent Protection Value    | `00 C8`         | Threshold for discharge overcurrent protection.                      |
+| `0x98` | Discharge Overcurrent Delay               | `01 2C`         | Delay for discharge overcurrent protection.                          |
+| `0x99` | Charging Overcurrent Protection Value     | `00 19`         | Threshold for charging overcurrent protection.                       |
+| `0x9A` | Charge Overcurrent Delay                  | `00 1E`         | Delay for charging overcurrent protection.                           |
+| `0x9B` | Balanced Starting Voltage                 | `0B B8`         | Voltage threshold to start balancing.                                |
+| `0x9C` | Balanced Opening Pressure Difference      | `00 0A`         | Pressure difference to start balancing.                              |
+| `0x9D` | Active Balance Switch                     | `01`            | `1` = On, `0` = Off.                                                 |
+| `0x9E` | Power Tube Temperature Protection Value   | `00 64`         | Threshold for power tube temperature protection.                     |
+| `0x9F` | Power Tube Temperature Recovery Value     | `00 50`         | Recovery threshold for power tube temperature.                       |
+| `0xA0` | Temperature Protection Value in Battery Box | `00 46`       | Threshold for temperature protection in the battery box.             |
+| `0xA1` | Temperature Recovery Value in Battery Box | `00 3C`         | Recovery threshold for temperature in the battery box.               |
+| `0xA2` | Battery Temperature Difference Protection Value | `00 14`   | Threshold for temperature difference protection.                     |
+| `0xA3` | Battery Charging High Temperature Protection Value | `00 46` | Threshold for high temperature during charging.                      |
+| `0xA4` | Battery Discharge High Temperature Protection Value | `00 46` | Threshold for high temperature during discharge.                     |
+| `0xA5` | Charging Low Temperature Protection Value | `FF EC`         | Threshold for low temperature during charging.                       |
+| `0xA6` | Charging Low Temperature Protection Recovery Value | `FF F6` | Recovery threshold for low temperature during charging.              |
+| `0xA7` | Discharge Low Temperature Protection Value | `FF EC`        | Threshold for low temperature during discharge.                      |
+| `0xA8` | Discharge Low Temperature Protection Recovery Value | `FF F6` | Recovery threshold for low temperature during discharge.             |
+| `0xA9` | Battery String Setting                    | `07`            | Number of battery strings.                                           |
+| `0xAA` | Battery Capacity Setting                  | `00 00 00 75`   | Capacity of the battery pack in Ah.                                  |
+| `0xAB` | Charging MOS Tube Switch                  | `01`            | `1` = On, `0` = Off.                                                 |
+| `0xAC` | Discharge MOS Tube Switch                 | `01`            | `1` = On, `0` = Off.                                                 |
+| `0xAD` | Current Calibration                       | `03 CC`         | Calibration value for current measurement.                           |
+| `0xAE` | Protection Board Address                  | `01`            | Address of the protection board.                                     |
+| `0xAF` | Battery Type                              | `01`            | `0` = Lithium Iron Phosphate, `1` = Ternary, `2` = Lithium Titanate. |
+| `0xB0` | Sleep Waiting Time                        | `00 0A`         | Time before entering sleep mode (in seconds).                        |
+| `0xB1` | Low Volume Alarm Value                    | `14`            | Threshold for low volume alarm.                                      |
+| `0xB2` | Modify Parameter Password                 | `31 32 33 34...`| Password for modifying parameters.                                   |
+| `0xB3` | Dedicated Charger Switch                  | `00`            | `1` = On, `0` = Off.                                                 |
+| `0xB4` | Device ID Code                            | `49 6E 70 75...`| Unique identifier for the device.                                    |
+| `0xB5` | Date of Manufacture                       | `32 34 30 37`   | Manufacturing date.                                                  |
+| `0xB6` | System Working Hours                      | `00 00 08 19`   | Total working hours of the system.                                   |
+| `0xB7` | Software Version Number                   | `31 31 2E 58...`| Version of the software.                                             |
+| `0xB8` | Start Current Calibration                 | `00`            | `1` = Start, `0` = Close.                                            |
+| `0xB9` | Actual Battery Capacity                   | `00 00 00 75`   | Actual capacity of the battery pack in Ah.                           |
+| `0xBA` | Manufacturer ID Naming                    | `49 6E 70 75...`| Manufacturer-specific identifier.                                    |
+| `0xC0` | Protocol Version Number                   | `01`            | Version of the communication protocol.                               |
+
+---
+
+#### Single Battery Voltage: `0x79`
+- **Byte Length Data**: `15` (7 batteries, so 7 groups of 3 bytes. Total data size: 7 * 3 = 21 bytes).
+- **Electricity Pool Voltage**:
+
+| Battery Number | Voltage Value (mV) |
+|----------------|---------------------|
+| 01             | `0E D2`            |
+| 02             | `0E D2`            |
+| 03             | `0E D2`            |
+| 04             | `0E D2`            |
+| 05             | `0E DB`            |
+| 06             | `0E DB`            |
+| 07             | `0E DB`            |
+
+---
+
 
 ### Reference
 

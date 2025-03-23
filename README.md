@@ -175,3 +175,7 @@ The column format `"BT3072020120000200521001"` is structured as follows:
 ### Reference
 
 1. [mpp-solar/issues/112 - full table](https://github.com/jblance/mpp-solar/issues/112#issuecomment-850585642)
+2. [Sample complete code](https://github.com/syssi/esphome-jk-bms/blob/main/components/jk_bms/jk_bms.cpp)
+3. [BMS Communication details](https://off-grid-garage.com/bms-communication/)
+4. [BMS Port details](https://user-images.githubusercontent.com/74740200/175492249-1b7c1cdc-b787-49f2-89d8-dc7130545e71.png)
+5. [Official Docs](/docs/)

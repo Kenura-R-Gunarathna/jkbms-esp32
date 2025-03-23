@@ -171,3 +171,7 @@ The column format `"BT3072020120000200521001"` is structured as follows:
     - **Production Month**: December
     - **Production Date**: 20th
     - **Serial Number**: 001
+
+### Reference
+
+1. [mpp-solar/issues/112 - full table](https://github.com/jblance/mpp-solar/issues/112#issuecomment-850585642)

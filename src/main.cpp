@@ -96,37 +96,29 @@ void printHexArray(const uint8_t *data, size_t len) {
 
 // Function to read data from the BMS serial port
 void readBMSData() {
-    dataIndex = 0;
-    frameReceived = false;
-    unsigned long startTime = millis(); // Start timeout counter
-    std::vector<uint8_t> responseData;
+  std::vector<uint8_t> responseData;
+  while (BMS_SERIAL.available() > 0) {
+    byte inByte = BMS_SERIAL.read();
+    responseData.push_back(inByte);
 
-    while (millis() - startTime < 1000) { // Wait for up to 1000ms (1 second)
-        if (BMS_SERIAL.available() > 0) {
-            byte inByte = BMS_SERIAL.read();
-            responseData.push_back(inByte);
-
-            // Detect start sequence (4E 57)
-            if (dataIndex == 0 && inByte != 0x4E) {
-                continue; // Ignore until we get the correct start byte
-            }
-
-            data[dataIndex++] = inByte;
-
-            // Stop if we reach expected frame length (adjust MAX_DATA_LENGTH accordingly)
-            if (dataIndex >= MAX_DATA_LENGTH) {
-                frameReceived = true;
-                break;
-            }
-        }
+    if (dataIndex == 0 && inByte != strtol(config.header.start_bytes[0].c_str(), NULL, 16)) {
+      // Wait for the start byte
+      if (DEBUG) Serial.print("Skipping byte: 0x");
+      if (DEBUG) Serial.println(inByte, HEX);
+      continue;
     }
 
-    if (frameReceived) {
-        Serial.println("Received response from JKBMS (Hex):");
-        printHexArray(responseData.data(), responseData.size());
-    } else {
-        Serial.println("Error: No valid response received within timeout.");
+    data[dataIndex++] = inByte;
+
+    if (dataIndex >= MAX_DATA_LENGTH) {
+      frameReceived = true;
+      dataIndex = 0; // Reset the index for the next frame
+      break;           // Exit the loop after receiving a complete frame
     }
+  }
+
+  Serial.println("Received response from JKBMS (Hex):");
+  printHexArray(responseData.data(), responseData.size()); // Print raw data
 }
 
 void decodeBMSData(const byte* data) {

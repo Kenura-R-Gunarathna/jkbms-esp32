@@ -1,8 +1,5 @@
 # JKBMS - Standord
-
-<img src="./docs/images/2025-03-23 at 12.56.36_5e5998b6.jpg" height="200px">
-<img src="./docs/images/2025-03-23 at 12.56.37_484d0686.jpg" height="200px">
-<img src="./docs/images/2025-03-23 at 12.56.37_eea4ed15.jpg" height="200px">
+<img src="./docs/images/2025-03-23 at 12.56.36_5e5998b6.jpg" height="200px"> <img src="./docs/images/2025-03-23 at 12.56.37_484d0686.jpg" height="200px"> <img src="./docs/images/2025-03-23 at 12.56.37_eea4ed15.jpg" height="200px">
 
 Below report is done using an actual request response from the provided JKBMS.
 

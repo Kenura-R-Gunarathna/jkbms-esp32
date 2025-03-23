@@ -4,7 +4,6 @@
 #include <vector>
 #include "BMSConfig.hpp"
 
-
 #define RX 16 // GPIO pin used for receiving data from JKBMS (JKBMS.TX --> ESP32.GPIO:RX)
 #define TX 17 // GPIO pin used for transmitting data to the JKBMS device (JKBMS.RX --> ESP32.GPIO:TX)
 HardwareSerial BMS_SERIAL(2); // Use BMS_SERIAL for UART2
@@ -30,6 +29,7 @@ void readBMSData();
 void decodeBMSData(const byte* data);
 void printHexArray(const uint8_t *data, size_t len);
 void printDecodedData(const byte* data);
+bool verifyChecksum(const byte* data, int length);
 
 // Helper function to convert bytes to an integer number
 template <typename T>
@@ -128,7 +128,30 @@ void decodeBMSData(const byte* data) {
     return;
   }
 
+  // Checksum validation
+  int dataLength = data[2]; // Assuming the checksum is at the last byte of the frame
+  if (!verifyChecksum(data, dataLength)) {
+    Serial.println("Checksum verification failed!");
+    return;
+  }
+
   printDecodedData(data);
+}
+
+// Function to verify checksum
+bool verifyChecksum(const byte* data, int length) {
+  byte checksum = 0;
+  for (int i = 0; i < length - 1; i++) { // Exclude the checksum byte
+    checksum += data[i];
+  }
+
+  byte receivedChecksum = data[length - 1]; // Last byte is the checksum
+
+  if (checksum == receivedChecksum) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 // Function to decode and print BMS data in a tabular format
@@ -138,8 +161,8 @@ void printDecodedData(const byte* data) {
   Serial.println("------------------------------------------------");
 
   for (const auto& [key, fieldConfig] : config.dataFields) {
-      Serial.print("Processing: ");
-      Serial.println(key);
+    Serial.print("Processing: ");
+    Serial.println(key);
 
     long code = strtol(fieldConfig.code.c_str(), NULL, 16);
 
@@ -182,12 +205,12 @@ void printDecodedData(const byte* data) {
         int value = bytesToNumber<int>(data, index, length);
         Serial.print(value);
       } else if (strcmp(type, "float") == 0) {
-           float value = bytesToFloat(data, index, length, scale);
-           if (fieldConfig.signed_value) {
-                if ((data[index] & 0x80) == 0x80) {
-                    value = (bytesToFloat(data, index, length, scale) - 65536) * scale;
-               }
-            }
+        float value = bytesToFloat(data, index, length, scale);
+        if (fieldConfig.signed_value) {
+          if ((data[index] & 0x80) == 0x80) {
+            value = (bytesToFloat(data, index, length, scale) - 65536) * scale;
+          }
+        }
         Serial.print(value);
       } else if (strcmp(type, "long") == 0) {
         long value = bytesToNumber<long>(data, index, length);

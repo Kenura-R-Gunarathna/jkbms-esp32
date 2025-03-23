@@ -199,7 +199,7 @@ The following is an example of decoding a response and request frame. All values
 
 #### Request Frame Breakdown:
 ```
-4E 57 01 06 00 00 00 00 06 00 01 79 15 01 0E D2 02 0E D2 03 0E D2 04 0E D2 05 0E DB 06 0E DB 07 0E DB 80 00 1C ...
+4E 57 01 06 00 00 00 00 06 00 01 79 15 01 0E D2 02 0E D2 03 0E D2 04 0E D2 05 0E DB 06 0E DB 07 0E DB 80 00 1C ... C0 01 00 00 00 00 68 00 00 4D 89
 ```
 
 | Field                     | Value         | Description                                                                 |

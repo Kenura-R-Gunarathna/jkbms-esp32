@@ -4,8 +4,11 @@
 #include <vector>
 #include "BMSConfig.hpp"
 
-// Define Serial port and baud rate
-#define BMS_SERIAL Serial1
+
+#define RX 16 // GPIO pin used for receiving data from JKBMS (JKBMS.TX --> ESP32.GPIO:RX)
+#define TX 17 // GPIO pin used for transmitting data to the JKBMS device (JKBMS.RX --> ESP32.GPIO:TX)
+HardwareSerial BMS_SERIAL(2); // Use BMS_SERIAL for UART2
+
 #define BMS_BAUD_RATE 115200 // Adjust to your BMS's baud rate
 #define DEBUG true
 
@@ -51,7 +54,7 @@ float bytesToFloat(const byte* data, int index, int length, float scale) {
 
 void setup() {
   Serial.begin(115200); // Initialize Serial Monitor for debugging
-  BMS_SERIAL.begin(BMS_BAUD_RATE, SERIAL_8N1, 16, 17); // Initialize Serial1 for BMS communication (RX pin, TX pin)
+  BMS_SERIAL.begin(BMS_BAUD_RATE, SERIAL_8N1, RX, TX); // Initialize Serial1 for BMS communication (RX pin, TX pin)
 
   Serial.println("ESP32 JKBMS Decoder Starting...");
 }

@@ -18,8 +18,8 @@ HardwareSerial BMS_SERIAL(2); // Use BMS_SERIAL for UART2
 const byte requestData[] = {0x4E, 0x57, 0x00, 0x13, 0x00, 0x00, 0x00, 0x00, 0x06, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x68, 0x00, 0x00, 0x01, 0x29};
 
 byte data[MAX_DATA_LENGTH]; // Array to store received data
-int dataIndex = 0;         // Index to track current position in the array
-bool frameReceived = false;  // Flag to indicate a complete frame has been received
+int dataIndex = 0;          // Index to track current position in the array
+bool frameReceived = false; // Flag to indicate a complete frame has been received
 
 // --- Global Configuration ---
 BMSConfig config = initializeConfig(); // Initialize the config
@@ -28,6 +28,7 @@ BMSConfig config = initializeConfig(); // Initialize the config
 void sendBMSRequest();
 void readBMSData();
 void decodeBMSData(const byte* data);
+void printHexArray(const uint8_t *data, size_t len);
 void printDecodedData(const byte* data);
 
 // Helper function to convert bytes to an integer number
@@ -61,11 +62,11 @@ void setup() {
 
 void loop() {
   sendBMSRequest(); // Send request to BMS
-  delay(100); // Wait for a short period to receive the response
-  readBMSData(); // Read data from the BMS
+  delay(100);       // Wait for a short period to receive the response
+  readBMSData();    // Read data from the BMS
 
   if (frameReceived) {
-    decodeBMSData(data); // Decode the data
+    decodeBMSData(data);    // Decode the data
     frameReceived = false;  // Reset the flag
   }
 
@@ -85,26 +86,47 @@ void sendBMSRequest() {
   }
 }
 
+// Function to print a byte array in hexadecimal
+void printHexArray(const uint8_t *data, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    Serial.printf("%02X ", data[i]); // Print each byte in 2-digit hexadecimal
+  }
+  Serial.println(); // New line after printing all bytes
+}
+
 // Function to read data from the BMS serial port
 void readBMSData() {
-  while (BMS_SERIAL.available() > 0) {
-    byte inByte = BMS_SERIAL.read();
+    dataIndex = 0;
+    frameReceived = false;
+    unsigned long startTime = millis(); // Start timeout counter
+    std::vector<uint8_t> responseData;
 
-    if (dataIndex == 0 && inByte != strtol(config.header.start_bytes[0].c_str(), NULL, 16)) {
-      // Wait for the start byte
-      if (DEBUG) Serial.print("Skipping byte: 0x");
-      if (DEBUG) Serial.println(inByte, HEX);
-      continue;
+    while (millis() - startTime < 1000) { // Wait for up to 1000ms (1 second)
+        if (BMS_SERIAL.available() > 0) {
+            byte inByte = BMS_SERIAL.read();
+            responseData.push_back(inByte);
+
+            // Detect start sequence (4E 57)
+            if (dataIndex == 0 && inByte != 0x4E) {
+                continue; // Ignore until we get the correct start byte
+            }
+
+            data[dataIndex++] = inByte;
+
+            // Stop if we reach expected frame length (adjust MAX_DATA_LENGTH accordingly)
+            if (dataIndex >= MAX_DATA_LENGTH) {
+                frameReceived = true;
+                break;
+            }
+        }
     }
 
-    data[dataIndex++] = inByte;
-
-    if (dataIndex >= MAX_DATA_LENGTH) {
-      frameReceived = true;
-      dataIndex = 0; // Reset the index for the next frame
-      break;           // Exit the loop after receiving a complete frame
+    if (frameReceived) {
+        Serial.println("Received response from JKBMS (Hex):");
+        printHexArray(responseData.data(), responseData.size());
+    } else {
+        Serial.println("Error: No valid response received within timeout.");
     }
-  }
 }
 
 void decodeBMSData(const byte* data) {

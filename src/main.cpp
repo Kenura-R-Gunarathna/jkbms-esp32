@@ -24,6 +24,10 @@ const int    DEFAULT_WIFI_TIMEOUT     = 500;
 const int    DEFAULT_REQUEST_TIMEOUT  = 5000;
 const bool   DEFAULT_DEBUG            = true;
 
+const char* DEFAULT_DEVICE_ID     = "AA:BB:CC:DD:EE:FF";
+const char* DEFAULT_DEVICE_NAME   = "MyJKBMS";
+const char* DEFAULT_DEVICE_TYPE   = "ESP32-JKBMS";
+const char* DEFAULT_VERSION       = "1.0.0";
 const char* DEFAULT_WIFI_SSID     = "admin";
 const char* DEFAULT_WIFI_PASSWORD = "pass";
 const char* DEFAULT_API_URL       = "https://your-api-endpoint.com";
@@ -50,6 +54,7 @@ int    WIFI_TIMEOUT     = DEFAULT_WIFI_TIMEOUT;
 int    REQUEST_TIMEOUT  = DEFAULT_REQUEST_TIMEOUT;
 bool   DEBUG            = DEFAULT_DEBUG;
 
+String DEVICE_ID     = DEFAULT_DEVICE_ID;
 String WIFI_SSID     = DEFAULT_WIFI_SSID;
 String WIFI_PASSWORD = DEFAULT_WIFI_PASSWORD;
 String API_URL       = DEFAULT_API_URL;
@@ -125,6 +130,8 @@ void setup() {
     delay(WIFI_TIMEOUT); Serial.print('.');
   }
   Serial.println(" connected.");
+  
+  DEVICE_ID = getMacAddress();
 }
 
 /* -------------------------------------------------
@@ -212,6 +219,77 @@ void loadConfig() {
 /* -------------------------------------------------
  * Serial / CLI Handler
  * ------------------------------------------------- */
+/**
+ * @brief Handles commands received over the primary Serial interface.
+ *
+ * This function reads incoming serial data, parses commands, and acts upon them.
+ * Some commands require prior authentication using the 'login' command.
+ * Configuration changes are saved to NVS (Non-Volatile Storage) using Preferences.
+ *
+ * Available Commands:
+ *
+ * Unauthenticated:
+ *   login <username> <password> - Authenticates the user. Default username is "admin".
+ *                                 The initial default password is "pass", which is then
+ *                                 hashed and stored. Subsequent logins use the hashed password.
+ *                                 Example: login admin mysecretpassword
+ *
+ * Authenticated Commands:
+ *   logout                        - De-authenticates the current user.
+ *
+ *   ssid=<your_wifi_ssid>         - Sets and saves the WiFi SSID. The SSID is encrypted before storing.
+ *                                   Example: ssid=MyHomeNetwork
+ *
+ *   wifiPass=<your_wifi_password> - Sets and saves the WiFi password. The password is encrypted before storing.
+ *                                   Example: wifiPass=mySecureWiFiPassword123
+ *
+ *   adminPass=<new_admin_pass>    - Changes the admin password for serial CLI login.
+ *                                   The new password is an unhashed string, which will be
+ *                                   hashed and stored.
+ *                                   Example: adminPass=newAdminPassword456
+ *
+ *   rxPin=<pin_number>            - Sets and saves the RX pin for BMS_SERIAL (UART2).
+ *                                   Note: A device reboot or manual re-initialization of
+ *                                   BMS_SERIAL is required for this change to take effect.
+ *                                   Example: rxPin=16
+ *
+ *   txPin=<pin_number>            - Sets and saves the TX pin for BMS_SERIAL (UART2).
+ *                                   Note: A device reboot or manual re-initialization of
+ *                                   BMS_SERIAL is required for this change to take effect.
+ *                                   Example: txPin=17
+ *
+ *   baud=<baud_rate>              - Sets and saves the baud rate for both the primary Serial
+ *                                   and BMS_SERIAL (UART2). The primary Serial is re-initialized
+ *                                   immediately.
+ *                                   Note: For BMS_SERIAL, a device reboot or manual
+ *                                   re-initialization is required for the change to take full effect.
+ *                                   Example: baud=115200
+ *
+ *   rTO=<timeout_ms>              - Sets and saves the BMS response timeout in milliseconds.
+ *                                   This is the time to wait for a response from the BMS
+ *                                   after sending a request.
+ *                                   Example: rTO=100
+ *
+ *   wTO=<timeout_ms>              - Sets and saves the WiFi connection timeout in milliseconds.
+ *                                   This is the duration for each attempt/delay when connecting to WiFi.
+ *                                   Example: wTO=500
+ *
+ *   reqTO=<timeout_ms>            - Sets and saves the main loop request timeout in milliseconds.
+ *                                   This is the delay at the end of the main loop before
+ *                                   the next BMS request cycle.
+ *                                   Example: reqTO=5000
+ *
+ *   dbg=<1|0|true|false>          - Sets and saves the debug mode. '1' or 'true' enables
+ *                                   verbose logging. '0' or 'false' disables it.
+ *                                   Example: dbg=1
+ *                                   Example: dbg=false
+ *
+ *   api=<full_api_url>            - Sets and saves the API endpoint URL for POSTing BMS data.
+ *                                   Example: api=https://your-api.com/data
+ *
+ * If an unrecognized command is entered while authenticated, "Unknown cmd" is printed.
+ * If a command requiring authentication is entered without logging in, a login prompt is shown.
+ */
 void handleSerialInput() {
   if (!Serial.available()) return;
   String s = Serial.readStringUntil('\n'); s.trim();
@@ -441,11 +519,11 @@ void sendPostRequest(const vector<uint8_t>& data) {
 
     // Build JSON
     DynamicJsonDocument doc(2048);
-    doc["device"] = "ESP32-JKBMS";
-    doc["version"] = "1.0.0";
+    doc["deviceId"] = DEVICE_ID;
+    doc["version"] = DEFAULT_VERSION;
     doc["isDebug"] = DEBUG ? "true" : "false";
-    doc["timestamp"] = millis();
-    doc["data"] = hexData;
+    doc["timestampMs"] = millis();
+    doc["hexData"] = hexData;
     
     String requestBody;
     serializeJson(doc, requestBody);
@@ -465,4 +543,15 @@ void sendPostRequest(const vector<uint8_t>& data) {
   } else {
     Serial.println("[ERROR] Unable to connect to API URL");
   }
+}
+
+// Function to get MAC address as a String
+String getMacAddress() {
+  uint8_t mac[6];
+  esp_efuse_mac_get_default(mac);
+
+  char macStr[18] = {0}; // AA:BB:CC:DD:EE:FF + null terminator
+  sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X",
+          mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  return String(macStr);
 }
